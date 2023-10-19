@@ -5,6 +5,6 @@ from .forms import MyUserCreationForm
 from django.urls import reverse_lazy
 
 class Registration(CreateView):
-    template_engine = 'registration/registration_form.html'
+    template_name = 'registration/registration_form.html'
     form_class = MyUserCreationForm
     success_url = reverse_lazy('blod:index')
