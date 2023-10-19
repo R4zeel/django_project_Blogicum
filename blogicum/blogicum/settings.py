@@ -48,6 +48,14 @@ STATICFILES_DIRS = [
     BASE_DIR / 'templates'
 ]
 
+EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+
+EMAIL_FILE_PATH = BASE_DIR / 'send_emails'
+
+LOGIN_REDIRECT_URL = 'blog:index'
+
+LOGIN_URL = 'login'
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
