@@ -1,10 +1,9 @@
 from django.db import models
-from users.models import MyUser
-
+from django.contrib.auth import get_user_model
 
 TITLE_MAX_LENGTH = 256
 
-User = MyUser
+User = get_user_model()
 
 
 class BaseModel(models.Model):
@@ -92,3 +91,5 @@ class Location(BaseModel):
         verbose_name_plural = 'Местоположения'
 
 
+class Comment(BaseModel):
+    ...

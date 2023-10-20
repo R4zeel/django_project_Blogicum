@@ -39,10 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'debug_toolbar',
     'django_bootstrap5',
-    'users',
 ]
-
-AUTH_USER_MODEL = 'users.MyUser'
 
 STATICFILES_DIRS = [
     BASE_DIR / 'templates'

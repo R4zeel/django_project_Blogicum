@@ -5,22 +5,27 @@ from . import views
 app_name = 'blog'
 
 urlpatterns = [
-    path
-    (
-        '',
-        views.PostListView.as_view(),
-        name='index'
+    path(
+        'profile/<slug:username>/',
+        views.UserProfile.as_view(),
+        name='profile'
     ),
     path
     (
-        'posts/<int:id>/',
+        'posts/<int:pk>/',
         views.PostDetailView.as_view(),
         name='post_detail'
     ),
     path
     (
-        'category/<slug:category_slug>/',
-        views.category_posts,
+        'category/<slug:slug>/',
+        views.CategoryPostsView.as_view(),
         name='category_posts'
+    ),
+    path
+    (
+        '',
+        views.PostListView.as_view(),
+        name='index'
     ),
 ]
