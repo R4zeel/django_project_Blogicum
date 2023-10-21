@@ -58,6 +58,9 @@ class Post(BaseModel):
         verbose_name_plural = 'Публикации'
         default_related_name = 'posts'
 
+    def __str__(self):
+        return self.title
+
 
 class Category(BaseModel):
     title = models.CharField(
@@ -92,4 +95,19 @@ class Location(BaseModel):
 
 
 class Comment(BaseModel):
-    ...
+    comment = models.TextField(
+        blank=True,
+        verbose_name='Комментарий'
+    )
+    user_comments = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='Комментарий'
+    )
+    post_comments = models.ForeignKey(
+        Post,
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name='Публикация'
+    )
+

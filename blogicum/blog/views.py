@@ -1,9 +1,13 @@
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.views.generic import ListView, DetailView
-from django.views.generic.detail import SingleObjectMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import (ListView,
+                                  DetailView,
+                                  CreateView,
+                                  )
 
 from .models import Post, Category, User
+from .forms import CreatePostForm
 
 
 def post_filtered_query():
@@ -55,25 +59,22 @@ class CategoryPostsView(ListView):
         return context
 
 
-class UserProfile(DetailView):
-    model = User
+class CreatePost(LoginRequiredMixin, CreateView):
+    form_class = CreatePostForm
+    template_name = 'blog/create.html'
 
-# def category_posts(request, category_slug):
-#     template_name = 'blog/category.html'
-#     current_category = get_object_or_404(
-#         Category.objects.all(),
-#         slug=category_slug,
-#         is_published=True
-#     )
-#     post_list = Post.objects.select_related(
-#         'category'
-#     ).filter(
-#         category__id=current_category.id,
-#         is_published=True,
-#         pub_date__lt=timezone.now(),
-#     )
-#     context = {
-#         'category': current_category,
-#         'post_list': post_list
-#     }
-#     return render(request, template_name, context)
+
+class EditPost(LoginRequiredMixin, DetailView):
+    ...
+
+
+class UserProfile(DetailView):
+    template_name = 'blog/profile.html'
+    model = User
+    slug_field = 'username'
+    slug_url_kwarg = 'username'
+
+
+
+
+
