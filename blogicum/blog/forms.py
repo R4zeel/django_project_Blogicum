@@ -1,10 +1,6 @@
 from django import forms
 from django.forms import ModelForm
-from .models import User, Post, Comment
-
-
-class CreateUserForm(ModelForm):
-    model = User
+from .models import  Post, Comment
 
 
 class CreatePostForm(ModelForm):
@@ -31,7 +27,7 @@ class EditPostForm(ModelForm):
 class AddCommentForm(ModelForm):
     class Meta:
         model = Comment
-        fields = ('comment',)
+        fields = ('text',)
         widgets = {
-            'comment': forms.TextInput()
+            'text': forms.TextInput()
         }

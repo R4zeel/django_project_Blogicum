@@ -99,12 +99,13 @@ class Location(BaseModel):
 
 
 class Comment(BaseModel):
-    comment = models.TextField(
+    text = models.TextField(
         verbose_name='Комментарий'
     )
-    user = models.ForeignKey(
+    author = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
         verbose_name='Комментарии пользователя'
     )
     post = models.ForeignKey(
@@ -113,3 +114,4 @@ class Comment(BaseModel):
         null=True,
         verbose_name='Комментарии публикации'
     )
+

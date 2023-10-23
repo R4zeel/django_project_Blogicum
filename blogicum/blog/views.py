@@ -7,10 +7,15 @@ from django.views.generic import (ListView,
                                   DeleteView,
                                   UpdateView
                                   )
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 
-from .models import Post, Category, User, Comment
-from .forms import CreatePostForm, AddCommentForm, EditPostForm
+from .models import (Post,
+                     Category,
+                     User,
+                     Comment)
+from .forms import (CreatePostForm,
+                    AddCommentForm,
+                    EditPostForm)
 
 
 class PostListView(ListView):
@@ -35,9 +40,10 @@ class PostDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['comments'] = Comment.objects.select_related(
-            'user',
+            'author',
             'post'
         )
+        context['form'] = AddCommentForm
         return context
 
 
@@ -87,21 +93,39 @@ class EditPost(LoginRequiredMixin, UpdateView):
 
 
 class DeletePost(LoginRequiredMixin, DeleteView):
-    ...
+    model = Post
 
 
 class AddComment(LoginRequiredMixin, CreateView):
+    related_post = None
     model = Comment
     form_class = AddCommentForm
 
-    # def dispatch(self, request, *args, **kwargs):
-    #     self.post = get_object_or_404(Post, pk=kwargs['pk'])
-    #     return super().dispatch(request, *args, **kwargs)
-    #
+    def dispatch(self, request, *args, **kwargs):
+        self.related_post = get_object_or_404(Post.objects.all(), id=kwargs['pk'])
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        form.instance.author = self.request.user
+        form.instance.post = self.related_post
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse('blog:post_detail', kwargs={'pk': self.related_post.id})
 
 
 class EditComment(LoginRequiredMixin, UpdateView):
-    ...
+    model = Comment
+
+
+class DeleteComment(LoginRequiredMixin, DeleteView):
+    model = Comment
+    template_name = 'blog/post_detail.html'
+    success_url = reverse_lazy('blog:index')
+
+    def get_object(self, queryset=None):
+        related_post = get_object_or_404(Post.objects.all(), id=self.kwargs['post_id'])
+        return get_object_or_404(Comment, post__id=related_post.id, id=self.kwargs['pk'])
 
 
 class UserProfile(ListView):
