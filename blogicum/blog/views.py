@@ -90,7 +90,6 @@ class CreatePost(LoginRequiredMixin, CreateView):
 
 class EditPost(LoginRequiredMixin, UpdateView):
     model = Post
-    template_name = 'blog/create.html'
     fields = ('title', 'text', 'category', 'location', 'image')
 
     def get_success_url(self):
@@ -99,7 +98,6 @@ class EditPost(LoginRequiredMixin, UpdateView):
 
 class DeletePost(LoginRequiredMixin, DeleteView):
     model = Post
-    template_name = 'blog/create.html'
     success_url = reverse_lazy('blog:index')
 
     def get_object(self, queryset=None):
