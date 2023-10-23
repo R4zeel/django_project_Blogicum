@@ -72,12 +72,13 @@ class CategoryPostsView(ListView):
 class CreatePost(LoginRequiredMixin, CreateView):
     form_class = CreatePostForm
     template_name = 'blog/create.html'
-    success_url = reverse_lazy('blog:index')
 
     def form_valid(self, form):
         form.instance.author = self.request.user
-        form.instance.pub_date = timezone.now()
         return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse('blog:profile', kwargs={'username': self.request.user})
 
 
 class EditPost(LoginRequiredMixin, UpdateView):
@@ -113,13 +114,16 @@ class UserProfile(ListView):
             User.objects.all(),
             username=self.kwargs['username']
         )
-        return Post.objects.select_related(
-            'author'
-        ).filter(
-            is_published=True,
-            pub_date__lt=timezone.now(),
-            author__id=user.id
-        )
+        if str(self.request.user) == user.username:
+            return Post.objects.select_related('author').filter(author__id=user.id)
+        else:
+            return Post.objects.select_related(
+                'author'
+            ).filter(
+                is_published=True,
+                pub_date__lt=timezone.now(),
+                author__id=user.id
+            )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
