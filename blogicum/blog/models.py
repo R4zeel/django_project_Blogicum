@@ -59,7 +59,7 @@ class Post(BaseModel):
         default_related_name = 'posts'
 
     def __str__(self):
-        return self.title
+        return self.location
 
 
 class Category(BaseModel):
@@ -96,18 +96,17 @@ class Location(BaseModel):
 
 class Comment(BaseModel):
     comment = models.TextField(
-        blank=True,
         verbose_name='Комментарий'
     )
-    user_comments = models.ForeignKey(
+    user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        verbose_name='Комментарий'
+        verbose_name='Комментарии пользователя'
     )
-    post_comments = models.ForeignKey(
+    post = models.ForeignKey(
         Post,
         on_delete=models.SET_NULL,
         null=True,
-        verbose_name='Публикация'
+        verbose_name='Комментарии публикации'
     )
 

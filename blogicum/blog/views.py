@@ -4,10 +4,13 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import (ListView,
                                   DetailView,
                                   CreateView,
+                                  DeleteView,
+                                  UpdateView
                                   )
+from django.urls import reverse_lazy
 
-from .models import Post, Category, User
-from .forms import CreatePostForm
+from .models import Post, Category, User, Comment
+from .forms import CreatePostForm, AddCommentForm, EditPostForm
 
 
 def post_filtered_query():
@@ -32,6 +35,11 @@ class PostListView(ListView):
 
 class PostDetailView(DetailView):
     model = Post
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['comments'] = Comment.objects.select_related('user', 'post')
+        return context
 
 
 class CategoryPostsView(ListView):
@@ -62,17 +70,68 @@ class CategoryPostsView(ListView):
 class CreatePost(LoginRequiredMixin, CreateView):
     form_class = CreatePostForm
     template_name = 'blog/create.html'
+    success_url = reverse_lazy('blog:index')
+
+    def form_valid(self, form):
+        form.instance.author = self.request.user
+        form.instance.pub_date = timezone.now()
+        return super().form_valid(form)
 
 
-class EditPost(LoginRequiredMixin, DetailView):
+class EditPost(LoginRequiredMixin, UpdateView):
+    model = Post
+    form_class = EditPostForm
+
+
+class DeletePost(LoginRequiredMixin, DeleteView):
     ...
 
 
-class UserProfile(DetailView):
+class AddComment(LoginRequiredMixin, CreateView):
+    model = Comment
+    form_class = AddCommentForm
+
+    # def dispatch(self, request, *args, **kwargs):
+    #     self.post = get_object_or_404(Post, pk=kwargs['pk'])
+    #     return super().dispatch(request, *args, **kwargs)
+    #
+
+
+class EditComment(LoginRequiredMixin, UpdateView):
+    ...
+
+
+class UserProfile(ListView):
     template_name = 'blog/profile.html'
+    model = Post
+    paginate_by = 10
+
+    def get_queryset(self):
+        user = get_object_or_404(User.objects.all(), username=self.kwargs['username'])
+        return Post.objects.select_related(
+            'author'
+        ).filter(
+            is_published=True,
+            pub_date__lt=timezone.now(),
+            author__id=user.id
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['profile'] = get_object_or_404(
+            User.objects.all(),
+            username=self.kwargs['username']
+        )
+        return context
+
+
+class EditProfile(LoginRequiredMixin, UpdateView):
     model = User
+    template_name = 'blog/user.html'
     slug_field = 'username'
     slug_url_kwarg = 'username'
+    fields = ('username', 'email', 'first_name', 'last_name')
+    success_url = reverse_lazy('blog:index')
 
 
 

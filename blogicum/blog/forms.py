@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import ModelForm
-from .models import User, Post
+from .models import User, Post, Comment
 
 
 class CreateUserForm(ModelForm):
@@ -10,7 +10,28 @@ class CreateUserForm(ModelForm):
 class CreatePostForm(ModelForm):
     class Meta:
         model = Post
-        exclude = ['pub_date', 'author']
+        exclude = ['author']
         widgets = {
-            'text': forms.TextInput()
+            'text': forms.TextInput(),
+            'pub_date': forms.DateTimeInput(attrs={
+                'type': 'datetime-local'
+            })
+        }
+
+
+class EditPostForm(ModelForm):
+    class Meta:
+        model = Post
+        exclude = ['author', 'pub_date']
+        widgets = {
+            'text': forms.TextInput(),
+        }
+
+
+class AddCommentForm(ModelForm):
+    class Meta:
+        model = Comment
+        fields = ('comment',)
+        widgets = {
+            'comment': forms.TextInput()
         }
