@@ -42,7 +42,7 @@ class PostDetailView(DetailView):
         context['comments'] = Comment.objects.select_related(
             'author',
             'post'
-        )
+        ).filter(post__id=self.kwargs['pk'])
         context['form'] = AddCommentForm
         return context
 
@@ -51,6 +51,7 @@ class CategoryPostsView(ListView):
     template_name = 'blog/category.html'
     model = Post
     paginate_by = 10
+    ordering = 'pub_date'
 
     def get_queryset(self):
         category = get_object_or_404(
@@ -89,11 +90,20 @@ class CreatePost(LoginRequiredMixin, CreateView):
 
 class EditPost(LoginRequiredMixin, UpdateView):
     model = Post
-    form_class = EditPostForm
+    template_name = 'blog/create.html'
+    fields = ('title', 'text', 'category', 'location', 'image')
+
+    def get_success_url(self):
+        return reverse('blog:post_detail', kwargs={'pk': self.kwargs['pk']})
 
 
 class DeletePost(LoginRequiredMixin, DeleteView):
     model = Post
+    template_name = 'blog/create.html'
+    success_url = reverse_lazy('blog:index')
+
+    def get_object(self, queryset=None):
+        return get_object_or_404(Post, id=self.kwargs['pk'])
 
 
 class AddComment(LoginRequiredMixin, CreateView):
@@ -116,22 +126,28 @@ class AddComment(LoginRequiredMixin, CreateView):
 
 class EditComment(LoginRequiredMixin, UpdateView):
     model = Comment
+    template_name = 'blog/create.html'
+    fields = ('text',)
+    success_url = reverse_lazy('blog:index')
+
+    def get_object(self, queryset=None):
+        return get_object_or_404(Comment.objects.all(), post__id=self.kwargs['pk'], id=self.kwargs['comment_id'])
 
 
 class DeleteComment(LoginRequiredMixin, DeleteView):
     model = Comment
-    template_name = 'blog/post_detail.html'
+    template_name = 'blog/comment_form.html'
     success_url = reverse_lazy('blog:index')
 
     def get_object(self, queryset=None):
-        related_post = get_object_or_404(Post.objects.all(), id=self.kwargs['post_id'])
-        return get_object_or_404(Comment, post__id=related_post.id, id=self.kwargs['pk'])
+        return get_object_or_404(Comment, id=self.kwargs['pk'], post__id=self.kwargs['post_id'])
 
 
 class UserProfile(ListView):
     template_name = 'blog/profile.html'
     model = Post
     paginate_by = 10
+    ordering = 'pub_date'
 
     def get_queryset(self):
         user = get_object_or_404(
