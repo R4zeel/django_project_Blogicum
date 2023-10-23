@@ -7,7 +7,7 @@ from django.views.generic import (ListView,
                                   DeleteView,
                                   UpdateView
                                   )
-from django.urls import reverse_lazy
+from django.urls import reverse
 
 from .models import Post, Category, User, Comment
 from .forms import CreatePostForm, AddCommentForm, EditPostForm
@@ -131,9 +131,16 @@ class UserProfile(ListView):
 
 
 class EditProfile(LoginRequiredMixin, UpdateView):
+    user_profile = None
     model = User
     template_name = 'blog/user.html'
     slug_field = 'username'
     slug_url_kwarg = 'username'
     fields = ('username', 'email', 'first_name', 'last_name')
-    success_url = reverse_lazy('blog:index')
+
+    def dispatch(self, request, *args, **kwargs):
+        self.user_profile = get_object_or_404(User.objects.all(), username=kwargs['username'])
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_success_url(self):
+        return reverse('blog:profile', kwargs={'username': self.user_profile.username})
