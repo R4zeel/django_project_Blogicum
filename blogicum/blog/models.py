@@ -52,6 +52,10 @@ class Post(BaseModel):
         null=True,
         verbose_name='Категория',
     )
+    image = models.ImageField(
+        blank=True,
+        verbose_name='Фото'
+    )
 
     class Meta:
         verbose_name = 'публикация'
@@ -109,4 +113,3 @@ class Comment(BaseModel):
         null=True,
         verbose_name='Комментарии публикации'
     )
-

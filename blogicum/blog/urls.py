@@ -10,7 +10,11 @@ urlpatterns = [
         views.UserProfile.as_view(),
         name='profile'
     ),
-    path('profile/<slug:username>/edit', views.EditProfile.as_view(), name='edit_profile'),
+    path(
+        'profile/<slug:username>/edit',
+        views.EditProfile.as_view(),
+        name='edit_profile'
+    ),
     path(
         'posts/create/',
         views.CreatePost.as_view(),
@@ -31,8 +35,16 @@ urlpatterns = [
         views.DeletePost.as_view(),
         name='delete_post'
     ),
-    path('posts/<int:pk>/comment', views.AddComment.as_view(), name='add_comment'),
-    path('posts/<int:pk>/edit_comment/<int:comment_id>/', views.EditComment.as_view(), name='edit_comment'),
+    path(
+        'posts/<int:pk>/comment',
+        views.AddComment.as_view(),
+        name='add_comment'
+    ),
+    path(
+        'posts/<int:pk>/edit_comment/<int:comment_id>/',
+        views.EditComment.as_view(),
+        name='edit_comment'
+    ),
     path
     (
         'category/<slug:slug>/',

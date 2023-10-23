@@ -13,8 +13,10 @@ from .models import Post, Category, User, Comment
 from .forms import CreatePostForm, AddCommentForm, EditPostForm
 
 
-def post_filtered_query():
-    return Post.objects.select_related(
+class PostListView(ListView):
+    template_name = 'blog/index.html'
+    model = Post
+    queryset = Post.objects.select_related(
         'category',
         'location',
         'author'
@@ -23,12 +25,6 @@ def post_filtered_query():
         is_published=True,
         category__is_published=True
     )
-
-
-class PostListView(ListView):
-    template_name = 'blog/index.html'
-    model = Post
-    queryset = post_filtered_query()
     ordering = '-pub_date'
     paginate_by = 10
 
@@ -38,7 +34,10 @@ class PostDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['comments'] = Comment.objects.select_related('user', 'post')
+        context['comments'] = Comment.objects.select_related(
+            'user',
+            'post'
+        )
         return context
 
 
@@ -48,7 +47,10 @@ class CategoryPostsView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        category = get_object_or_404(Category.objects.all(), slug=self.kwargs['slug'])
+        category = get_object_or_404(
+            Category.objects.all(),
+            slug=self.kwargs['slug']
+        )
         return Post.objects.select_related(
             'category'
         ).filter(
@@ -107,7 +109,10 @@ class UserProfile(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        user = get_object_or_404(User.objects.all(), username=self.kwargs['username'])
+        user = get_object_or_404(
+            User.objects.all(),
+            username=self.kwargs['username']
+        )
         return Post.objects.select_related(
             'author'
         ).filter(
@@ -132,8 +137,3 @@ class EditProfile(LoginRequiredMixin, UpdateView):
     slug_url_kwarg = 'username'
     fields = ('username', 'email', 'first_name', 'last_name')
     success_url = reverse_lazy('blog:index')
-
-
-
-
-
