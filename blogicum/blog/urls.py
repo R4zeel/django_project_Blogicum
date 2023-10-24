@@ -37,7 +37,7 @@ urlpatterns = [
     ),
     path(
         'posts/<int:pk>/comment/',
-        views.AddComment.as_view(),
+        views.add_comment,
         name='add_comment'
     ),
     path(
