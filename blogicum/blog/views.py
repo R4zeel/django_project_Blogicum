@@ -1,5 +1,8 @@
 from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse, reverse_lazy
+from django.http import Http404
 from django.utils import timezone
+from django.db.models import Count
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.views.generic import (ListView,
@@ -8,16 +11,13 @@ from django.views.generic import (ListView,
                                   DeleteView,
                                   UpdateView
                                   )
-from django.urls import reverse, reverse_lazy
-from django.core.exceptions import PermissionDenied
 
 from .models import (Post,
                      Category,
                      User,
                      Comment)
 from .forms import (CreatePostForm,
-                    AddCommentForm,
-                    EditPostForm)
+                    AddCommentForm,)
 
 
 @login_required
@@ -43,13 +43,20 @@ class PostListView(ListView):
         pub_date__lt=timezone.now(),
         is_published=True,
         category__is_published=True
-    )
+    ).annotate(comment_count=Count('comment'))
     ordering = '-pub_date'
     paginate_by = 10
 
 
 class PostDetailView(DetailView):
     model = Post
+
+    def dispatch(self, request, *args, **kwargs):
+        post = get_object_or_404(Post, pk=kwargs['pk'])
+        if post.is_published is False:
+            if post.author != request.user:
+                raise Http404
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -65,7 +72,6 @@ class CategoryPostsView(ListView):
     template_name = 'blog/category.html'
     model = Post
     paginate_by = 10
-    ordering = 'pub_date'
 
     def get_queryset(self):
         category = get_object_or_404(
@@ -78,6 +84,10 @@ class CategoryPostsView(ListView):
             is_published=True,
             pub_date__lt=timezone.now(),
             category__id=category.id
+        ).order_by(
+            '-pub_date'
+        ).annotate(
+            comment_count=Count('comment')
         )
 
     def get_context_data(self, **kwargs):
@@ -108,9 +118,9 @@ class EditPost(LoginRequiredMixin, UpdateView):
     fields = ('title', 'text', 'category', 'location', 'image')
 
     def dispatch(self, request, *args, **kwargs):
-        instance = get_object_or_404(Post, pk=kwargs['pk'], author=request.user)
+        instance = get_object_or_404(Post, pk=kwargs['pk'])
         if instance.author != request.user:
-            reverse('blog:post_detail', kwargs={'pk': kwargs['pk']})
+            return redirect('blog:post_detail', pk=kwargs['pk'])
         return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
@@ -122,8 +132,15 @@ class DeletePost(LoginRequiredMixin, DeleteView):
     template_name = 'blog/create.html'
     success_url = reverse_lazy('blog:index')
 
+    def dispatch(self, request, *args, **kwargs):
+        instance = get_object_or_404(Post, pk=kwargs['pk'])
+        if instance.author != request.user:
+            return redirect('blog:post_detail', pk=kwargs['pk'])
+        return super().dispatch(request, *args, **kwargs)
+
     def get_object(self, queryset=None):
         return get_object_or_404(Post, id=self.kwargs['pk'])
+
 
 # Отказался от использования CBV в пользцу обычной view функции,
 # так как pytest ругался на то, что передаю больше одной формы
@@ -136,11 +153,12 @@ class DeletePost(LoginRequiredMixin, DeleteView):
 # class AddComment(LoginRequiredMixin, CreateView):
 #     related_post = None
 #     model = Comment
-#     template_name = 'blog/post_detail.html'
 #     form_class = AddCommentForm
 #
 #     def dispatch(self, request, *args, **kwargs):
-#         self.related_post = get_object_or_404(Post.objects.all(), id=kwargs['pk'])
+#         self.related_post = get_object_or_404(
+#         Post.objects.all(), id=kwargs['pk']
+#         )
 #         return super().dispatch(request, *args, **kwargs)
 #
 #     def form_valid(self, form):
@@ -149,7 +167,8 @@ class DeletePost(LoginRequiredMixin, DeleteView):
 #         return super().form_valid(form)
 #
 #     def get_success_url(self):
-#         return reverse('blog:post_detail', kwargs={'pk': self.related_post.id})
+#         return reverse('blog:post_detail',
+#         kwargs={'pk': self.related_post.id})
 
 
 class EditComment(LoginRequiredMixin, UpdateView):
@@ -157,8 +176,16 @@ class EditComment(LoginRequiredMixin, UpdateView):
     template_name = 'blog/create.html'
     fields = ('text',)
 
+    def dispatch(self, request, *args, **kwargs):
+        instance = get_object_or_404(Comment, pk=kwargs['comment_id'])
+        if instance.author != request.user:
+            return redirect('blog:post_detail', pk=kwargs['pk'])
+        return super().dispatch(request, *args, **kwargs)
+
     def get_object(self, queryset=None):
-        return get_object_or_404(Comment.objects.all(), post__id=self.kwargs['pk'], id=self.kwargs['comment_id'])
+        return get_object_or_404(Comment.objects.all(),
+                                 post__id=self.kwargs['pk'],
+                                 id=self.kwargs['comment_id'])
 
     def get_success_url(self):
         return reverse('blog:post_detail', kwargs={'pk': self.kwargs['pk']})
@@ -168,18 +195,30 @@ class DeleteComment(LoginRequiredMixin, DeleteView):
     model = Comment
     template_name = 'blog/comment_form.html'
 
+    # Тут пытался сделать название аргументов в адресе
+    # запроса идентичными представлению editcomment,
+    # но на тестах получал ошибку о том, что у этих
+    # функций должны быть одинаковые права доступа.
+    # Причины этой ошибки так и не обнаружил
+    def dispatch(self, request, *args, **kwargs):
+        instance = get_object_or_404(Comment, pk=kwargs['pk'])
+        if instance.author != request.user:
+            return redirect('blog:post_detail', pk=kwargs['post_id'])
+        return super().dispatch(request, *args, **kwargs)
+
     def get_object(self, queryset=None):
-        return get_object_or_404(Comment, id=self.kwargs['pk'], post__id=self.kwargs['post_id'])
+        return get_object_or_404(Comment, id=self.kwargs['pk'],
+                                 post__id=self.kwargs['post_id'])
 
     def get_success_url(self):
-        return reverse('blog:post_detail', kwargs={'pk': self.kwargs['post_id']})
+        return reverse('blog:post_detail',
+                       kwargs={'pk': self.kwargs['post_id']})
 
 
 class UserProfile(ListView):
     template_name = 'blog/profile.html'
     model = Post
     paginate_by = 10
-    ordering = 'pub_date'
 
     def get_queryset(self):
         user = get_object_or_404(
@@ -187,7 +226,17 @@ class UserProfile(ListView):
             username=self.kwargs['username']
         )
         if str(self.request.user) == user.username:
-            return Post.objects.select_related('author').filter(author__id=user.id)
+            return Post.objects.select_related(
+                'author'
+            ).filter(
+                author__id=user.id
+            ).order_by(
+                '-pub_date'
+            ).annotate(
+                comment_count=Count(
+                    'comment'
+                )
+            )
         else:
             return Post.objects.select_related(
                 'author'
@@ -195,6 +244,8 @@ class UserProfile(ListView):
                 is_published=True,
                 pub_date__lt=timezone.now(),
                 author__id=user.id
+            ).order_by('-pub_date').annotate(
+                comment_count=Count('comment')
             )
 
     def get_context_data(self, **kwargs):
@@ -207,7 +258,6 @@ class UserProfile(ListView):
 
 
 class EditProfile(LoginRequiredMixin, UpdateView):
-    user_profile = None
     model = User
     template_name = 'blog/user.html'
     slug_field = 'username'
@@ -215,8 +265,12 @@ class EditProfile(LoginRequiredMixin, UpdateView):
     fields = ('username', 'email', 'first_name', 'last_name')
 
     def dispatch(self, request, *args, **kwargs):
-        self.user_profile = get_object_or_404(User.objects.all(), username=kwargs['username'])
+        user_profile = get_object_or_404(User.objects.all(),
+                                         username=kwargs['username'])
+        if user_profile.username != request.user:
+            return redirect('blog:profile', username=kwargs['username'])
         return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
-        return reverse('blog:profile', kwargs={'username': self.user_profile.username})
+        return reverse('blog:profile',
+                       kwargs={'username': self.kwargs['username']})

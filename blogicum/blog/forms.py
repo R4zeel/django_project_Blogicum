@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import ModelForm
-from .models import  Post, Comment
+from .models import Post, Comment
 
 
 class CreatePostForm(ModelForm):
@@ -12,15 +12,6 @@ class CreatePostForm(ModelForm):
             'pub_date': forms.DateTimeInput(attrs={
                 'type': 'datetime-local'
             })
-        }
-
-
-class EditPostForm(ModelForm):
-    class Meta:
-        model = Post
-        exclude = ['author', 'pub_date']
-        widgets = {
-            'text': forms.TextInput(),
         }
 
 

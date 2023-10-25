@@ -24,7 +24,10 @@ SECRET_KEY = 'django-insecure-wa)8)&k_x6o$s0g8l2t873(1ed2m9+@g!+vzushvdqb6l=p52s
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+]
 
 # Application definition
 
@@ -40,6 +43,8 @@ INSTALLED_APPS = [
     'debug_toolbar',
     'django_bootstrap5',
 ]
+
+CSRF_FAILURE_VIEW = 'pages.views.csrf_failure'
 
 STATICFILES_DIRS = [
     BASE_DIR / 'templates'

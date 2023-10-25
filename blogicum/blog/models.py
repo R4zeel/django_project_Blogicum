@@ -117,4 +117,3 @@ class Comment(BaseModel):
         null=True,
         verbose_name='Комментарии публикации'
     )
-
