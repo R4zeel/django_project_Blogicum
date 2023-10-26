@@ -19,6 +19,7 @@ from .models import (Post,
 from .forms import (CreatePostForm,
                     AddCommentForm,)
 
+PAGINATE_VALUE = 10
 
 @login_required
 def add_comment(request, pk):
@@ -45,7 +46,7 @@ class PostListView(ListView):
         category__is_published=True
     ).annotate(comment_count=Count('comment'))
     ordering = '-pub_date'
-    paginate_by = 10
+    paginate_by = PAGINATE_VALUE
 
 
 class PostDetailView(DetailView):
@@ -71,7 +72,7 @@ class PostDetailView(DetailView):
 class CategoryPostsView(ListView):
     template_name = 'blog/category.html'
     model = Post
-    paginate_by = 10
+    paginate_by = PAGINATE_VALUE
 
     def get_queryset(self):
         category = get_object_or_404(
@@ -218,7 +219,7 @@ class DeleteComment(LoginRequiredMixin, DeleteView):
 class UserProfile(ListView):
     template_name = 'blog/profile.html'
     model = Post
-    paginate_by = 10
+    paginate_by = PAGINATE_VALUE
 
     def get_queryset(self):
         user = get_object_or_404(

@@ -109,7 +109,7 @@ class Comment(BaseModel):
         User,
         on_delete=models.SET_NULL,
         null=True,
-        verbose_name='Комментарии пользователя'
+        verbose_name='Автор комментария'
     )
     post = models.ForeignKey(
         Post,
@@ -117,3 +117,7 @@ class Comment(BaseModel):
         null=True,
         verbose_name='Комментарии публикации'
     )
+
+    class Meta:
+        verbose_name = 'Комментарий'
+        verbose_name_plural = 'Комментарии'
