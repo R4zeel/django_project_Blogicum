@@ -20,8 +20,6 @@ from .forms import (CreatePostForm,
                     AddCommentForm,)
 
 PAGINATE_VALUE = 10
-# Тут вынес queryset в константу, но запутался, куда
-# её применить - везде разные кверисеты, насколько могу судить.
 POSTS_RELATED_OBJECTS = Post.objects.select_related(
     'category',
     'location',
@@ -44,6 +42,7 @@ class PostListView(ListView):
 class PostDetailView(FormMixin, DetailView):
     model = Post
     form_class = AddCommentForm
+    queryset = POSTS_RELATED_OBJECTS
 
     def dispatch(self, request, *args, **kwargs):
         post = get_object_or_404(Post, pk=kwargs['pk'])
@@ -70,9 +69,7 @@ class CategoryPostsView(ListView):
             slug=self.kwargs['slug'],
             is_published=True
         )
-        return Post.objects.select_related(
-            'category'
-        ).filter(
+        return POSTS_RELATED_OBJECTS.filter(
             is_published=True,
             pub_date__lt=timezone.now(),
             category__id=category.id
@@ -206,18 +203,14 @@ class UserProfileView(ListView):
             username=self.kwargs['username']
         )
         if str(self.request.user) == self.author.username:
-            return Post.objects.select_related(
-                'author'
-            ).filter(
+            return POSTS_RELATED_OBJECTS.filter(
                 author__id=self.author.id
             ).order_by(
                 '-pub_date'
             ).annotate(
                 comment_count=Count('comment')
             )
-        return Post.objects.select_related(
-            'author'
-        ).filter(
+        return POSTS_RELATED_OBJECTS.filter(
             is_published=True,
             pub_date__lt=timezone.now(),
             author__id=self.author.id
