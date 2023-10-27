@@ -4,7 +4,7 @@ from django.http import Http404
 from django.utils import timezone
 from django.db.models import Count
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.decorators import login_required
+from django.views.generic.edit import FormMixin
 from django.views.generic import (ListView,
                                   DetailView,
                                   CreateView,
@@ -20,27 +20,19 @@ from .forms import (CreatePostForm,
                     AddCommentForm,)
 
 PAGINATE_VALUE = 10
-
-@login_required
-def add_comment(request, pk):
-    post = get_object_or_404(Post, pk=pk)
-    form = AddCommentForm(request.POST)
-    if form.is_valid():
-        added_comment = form.save(commit=False)
-        added_comment.author = request.user
-        added_comment.post = post
-        added_comment.save()
-    return redirect('blog:post_detail', pk=pk)
+# Тут вынес queryset в константу, но запутался, куда
+# её применить - везде разные кверисеты, насколько могу судить.
+POSTS_RELATED_OBJECTS = Post.objects.select_related(
+    'category',
+    'location',
+    'author'
+)
 
 
 class PostListView(ListView):
     template_name = 'blog/index.html'
     model = Post
-    queryset = Post.objects.select_related(
-        'category',
-        'location',
-        'author'
-    ).filter(
+    queryset = POSTS_RELATED_OBJECTS.filter(
         pub_date__lt=timezone.now(),
         is_published=True,
         category__is_published=True
@@ -49,14 +41,14 @@ class PostListView(ListView):
     paginate_by = PAGINATE_VALUE
 
 
-class PostDetailView(DetailView):
+class PostDetailView(FormMixin, DetailView):
     model = Post
+    form_class = AddCommentForm
 
     def dispatch(self, request, *args, **kwargs):
         post = get_object_or_404(Post, pk=kwargs['pk'])
-        if post.is_published is False:
-            if post.author != request.user:
-                raise Http404
+        if not post.is_published and post.author != request.user:
+            raise Http404
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
@@ -65,19 +57,18 @@ class PostDetailView(DetailView):
             'author',
             'post'
         ).filter(post__id=self.kwargs['pk'])
-        context['form'] = AddCommentForm()
         return context
 
 
 class CategoryPostsView(ListView):
     template_name = 'blog/category.html'
-    model = Post
     paginate_by = PAGINATE_VALUE
 
     def get_queryset(self):
         category = get_object_or_404(
             Category.objects.all(),
-            slug=self.kwargs['slug']
+            slug=self.kwargs['slug'],
+            is_published=True
         )
         return Post.objects.select_related(
             'category'
@@ -101,7 +92,7 @@ class CategoryPostsView(ListView):
         return context
 
 
-class CreatePost(LoginRequiredMixin, CreateView):
+class CreatePostView(LoginRequiredMixin, CreateView):
     form_class = CreatePostForm
     template_name = 'blog/create.html'
 
@@ -113,7 +104,7 @@ class CreatePost(LoginRequiredMixin, CreateView):
         return reverse('blog:profile', kwargs={'username': self.request.user})
 
 
-class EditPost(LoginRequiredMixin, UpdateView):
+class EditPostView(LoginRequiredMixin, UpdateView):
     model = Post
     template_name = 'blog/create.html'
     fields = ('title', 'text', 'category', 'location', 'image')
@@ -128,7 +119,7 @@ class EditPost(LoginRequiredMixin, UpdateView):
         return reverse('blog:post_detail', kwargs={'pk': self.kwargs['pk']})
 
 
-class DeletePost(LoginRequiredMixin, DeleteView):
+class DeletePostView(LoginRequiredMixin, DeleteView):
     model = Post
     template_name = 'blog/create.html'
     success_url = reverse_lazy('blog:index')
@@ -143,36 +134,28 @@ class DeletePost(LoginRequiredMixin, DeleteView):
         return get_object_or_404(Post, id=self.kwargs['pk'])
 
 
-# Отказался от использования CBV в пользцу обычной view функции,
-# так как pytest ругался на то, что передаю больше одной формы
-# в шаблон(форма добавления комментария первый раз передаётся
-# в классе PostDetailView, как как без этого джанго ругался на
-# то, что не передаётся нужная форма и страница не открывалась,
-# пришлось добавить форму в контекст.)
-# Если бы тесты проходились нормально - использовал бы CBV
+class AddCommentView(LoginRequiredMixin, CreateView):
+    related_post = None
+    model = Comment
+    form_class = AddCommentForm
 
-# class AddComment(LoginRequiredMixin, CreateView):
-#     related_post = None
-#     model = Comment
-#     form_class = AddCommentForm
-#
-#     def dispatch(self, request, *args, **kwargs):
-#         self.related_post = get_object_or_404(
-#         Post.objects.all(), id=kwargs['pk']
-#         )
-#         return super().dispatch(request, *args, **kwargs)
-#
-#     def form_valid(self, form):
-#         form.instance.author = self.request.user
-#         form.instance.post = self.related_post
-#         return super().form_valid(form)
-#
-#     def get_success_url(self):
-#         return reverse('blog:post_detail',
-#         kwargs={'pk': self.related_post.id})
+    def dispatch(self, request, *args, **kwargs):
+        self.related_post = get_object_or_404(
+            Post.objects.all(), id=kwargs['pk']
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        form.instance.author = self.request.user
+        form.instance.post = self.related_post
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse('blog:post_detail',
+                       kwargs={'pk': self.related_post.id})
 
 
-class EditComment(LoginRequiredMixin, UpdateView):
+class EditCommentView(LoginRequiredMixin, UpdateView):
     model = Comment
     template_name = 'blog/create.html'
     fields = ('text',)
@@ -192,90 +175,77 @@ class EditComment(LoginRequiredMixin, UpdateView):
         return reverse('blog:post_detail', kwargs={'pk': self.kwargs['pk']})
 
 
-class DeleteComment(LoginRequiredMixin, DeleteView):
+class DeleteCommentView(LoginRequiredMixin, DeleteView):
     model = Comment
     template_name = 'blog/comment_form.html'
 
-    # Тут пытался сделать название аргументов в адресе
-    # запроса идентичными представлению editcomment,
-    # но на тестах получал ошибку о том, что у этих
-    # функций должны быть одинаковые права доступа.
-    # Причины этой ошибки так и не обнаружил
     def dispatch(self, request, *args, **kwargs):
-        instance = get_object_or_404(Comment, pk=kwargs['pk'])
+        instance = get_object_or_404(Comment, pk=kwargs['comment_id'])
         if instance.author != request.user:
-            return redirect('blog:post_detail', pk=kwargs['post_id'])
+            return redirect('blog:post_detail', pk=kwargs['pk'])
         return super().dispatch(request, *args, **kwargs)
 
     def get_object(self, queryset=None):
-        return get_object_or_404(Comment, id=self.kwargs['pk'],
-                                 post__id=self.kwargs['post_id'])
+        return get_object_or_404(Comment, id=self.kwargs['comment_id'],
+                                 post__id=self.kwargs['pk'])
 
     def get_success_url(self):
         return reverse('blog:post_detail',
-                       kwargs={'pk': self.kwargs['post_id']})
+                       kwargs={'pk': self.kwargs['pk']})
 
 
-class UserProfile(ListView):
+class UserProfileView(ListView):
     template_name = 'blog/profile.html'
+    author = None
     model = Post
     paginate_by = PAGINATE_VALUE
 
     def get_queryset(self):
-        user = get_object_or_404(
+        self.author = get_object_or_404(
             User.objects.all(),
             username=self.kwargs['username']
         )
-        if str(self.request.user) == user.username:
+        if str(self.request.user) == self.author.username:
             return Post.objects.select_related(
                 'author'
             ).filter(
-                author__id=user.id
+                author__id=self.author.id
             ).order_by(
                 '-pub_date'
             ).annotate(
-                comment_count=Count(
-                    'comment'
-                )
-            )
-        else:
-            return Post.objects.select_related(
-                'author'
-            ).filter(
-                is_published=True,
-                pub_date__lt=timezone.now(),
-                author__id=user.id
-            ).order_by('-pub_date').annotate(
                 comment_count=Count('comment')
             )
+        return Post.objects.select_related(
+            'author'
+        ).filter(
+            is_published=True,
+            pub_date__lt=timezone.now(),
+            author__id=self.author.id
+        ).order_by(
+            '-pub_date'
+        ).annotate(
+            comment_count=Count('comment')
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['profile'] = get_object_or_404(
-            User.objects.all(),
-            username=self.kwargs['username']
-        )
+        context['profile'] = self.author
         return context
 
 
-class EditProfile(LoginRequiredMixin, UpdateView):
+class EditProfileView(LoginRequiredMixin, UpdateView):
     model = User
     template_name = 'blog/user.html'
     slug_field = 'username'
     slug_url_kwarg = 'username'
     fields = ('username', 'email', 'first_name', 'last_name')
 
-    # тут проверка на права доступа к редактированию
-    # аккаунта, но из-за неё я по неизвестной ошибке
-    # не мог пройти автотесты. Перестал получать
-    # ошибку после того, как задокументировал этот кусок
-    #
-    # def dispatch(self, request, *args, **kwargs):
-    #     user_profile = get_object_or_404(User.objects.all(),
-    #                                      username=kwargs['username'])
-    #     if user_profile.username != request.user:
-    #         return redirect('blog:profile', username=kwargs['username'])
-    #     return super().dispatch(request, *args, **kwargs)
+    def dispatch(self, request, *args, **kwargs):
+        user_profile = get_object_or_404(User.objects.all(),
+                                         username=kwargs['username'])
+        if user_profile != request.user:
+            return redirect('blog:profile', username=kwargs['username'])
+        return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
         return reverse('blog:profile',
